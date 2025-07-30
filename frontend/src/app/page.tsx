@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { apiService, StockInfo, HistoricalDataResponse, AdvancedPredictionResponse, PredictionResponse } from '@/lib/api';
+import { apiService, StockInfo, HistoricalDataResponse, AdvancedPredictionResponse } from '@/lib/api';
 import StockSearch from '@/components/StockSearch';
 import StockCard from '@/components/StockCard';
 import StockChart from '@/components/StockChart';

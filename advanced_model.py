@@ -94,8 +94,11 @@ class AdvancedStockPredictor:
             logger.info("Fetched %d trading days of data", len(data))
             return data
             
-        except Exception as e:
+        except (ValueError, KeyError, ConnectionError, TimeoutError) as e:
             logger.error("Error fetching data for %s: %s", self.symbol, e)
+            return None
+        except Exception as e:
+            logger.error("Unexpected error fetching data for %s: %s", self.symbol, e)
             return None
     
     def calculate_advanced_sma(self, data: pd.DataFrame, periods: List[int]) -> pd.DataFrame:
@@ -337,8 +340,11 @@ class AdvancedStockPredictor:
             logger.info("Created %d features from %d rows", len(df.columns), len(data))
             return df
             
-        except Exception as e:
+        except (ValueError, KeyError, IndexError) as e:
             logger.error("Error creating features: %s", e)
+            return None
+        except Exception as e:
+            logger.error("Unexpected error creating features: %s", e)
             return None
     
     def train_models(self, data: pd.DataFrame) -> bool:
@@ -417,8 +423,11 @@ class AdvancedStockPredictor:
             logger.info("Model training completed successfully")
             return True
             
-        except Exception as e:
+        except (ValueError, MemoryError, RuntimeError) as e:
             logger.error("Error training models: %s", e)
+            return False
+        except Exception as e:
+            logger.error("Unexpected error training models: %s", e)
             return False
     
     def _calculate_feature_importance(self):
@@ -446,8 +455,10 @@ class AdvancedStockPredictor:
                 sorted(self.feature_importance.items(), key=lambda x: x[1], reverse=True)
             )
             
-        except Exception as e:
+        except (KeyError, AttributeError, ValueError) as e:
             logger.error("Error calculating feature importance: %s", e)
+        except Exception as e:
+            logger.error("Unexpected error calculating feature importance: %s", e)
     
     def predict_ensemble(self, data: pd.DataFrame) -> Dict[str, Any]:
         """
@@ -491,8 +502,11 @@ class AdvancedStockPredictor:
                     predictions[name] = pred
                     weights[name] = self.model_scores.get(name, 0.5)
                     
+                except (ValueError, KeyError, AttributeError) as e:
+                    logger.warning("Error with %s prediction: %s", name, e)
+                    continue
                 except Exception as e:
-                    logger.warning(f"Error with {name} prediction: {e}")
+                    logger.warning("Unexpected error with %s prediction: %s", name, e)
                     continue
             
             if not predictions:
@@ -536,8 +550,11 @@ class AdvancedStockPredictor:
                 'symbol': self.symbol
             }
             
-        except Exception as e:
+        except (ValueError, KeyError, RuntimeError) as e:
             logger.error("Error making prediction: %s", e)
+            return None
+        except Exception as e:
+            logger.error("Unexpected error making prediction: %s", e)
             return None
     
     def get_model_info(self) -> Dict[str, Any]:
@@ -583,6 +600,9 @@ class AdvancedStockPredictor:
             prediction = self.predict_ensemble(data)
             return prediction
             
-        except Exception as e:
+        except (ValueError, RuntimeError, MemoryError) as e:
             logger.error("Error in train_and_predict: %s", e)
+            return None
+        except Exception as e:
+            logger.error("Unexpected error in train_and_predict: %s", e)
             return None

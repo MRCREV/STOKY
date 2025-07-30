@@ -1,0 +1,10 @@
+frontend/
+stoky_mobile/
+node_modules/
+.next/
+.git/
+.vscode/
+__pycache__/
+*.pyc
+.env
+.DS_Store

@@ -1,0 +1,18 @@
+# Commands to Run After Creating GitHub Repository
+
+## Replace YOUR_USERNAME with your actual GitHub username
+
+# Add the remote repository
+git remote add origin https://github.com/YOUR_USERNAME/STOKY.git
+
+# Push to GitHub
+git push -u origin master
+
+## Alternative if you prefer 'main' branch:
+# git branch -M main
+# git remote add origin https://github.com/YOUR_USERNAME/STOKY.git  
+# git push -u origin main
+
+## Example with a real username:
+# git remote add origin https://github.com/john-doe/STOKY.git
+# git push -u origin master

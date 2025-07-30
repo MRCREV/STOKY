@@ -1,0 +1,13 @@
+{
+  "name": "stoky-backend",
+  "description": "STOKY AI Stock Advisor Backend API",
+  "version": "1.0.0",
+  "main": "app.py",
+  "scripts": {
+    "start": "uvicorn app:app --host 0.0.0.0 --port $PORT"
+  },
+  "dependencies": {},
+  "engines": {
+    "python": "3.11.0"
+  }
+}

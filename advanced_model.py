@@ -1,18 +1,13 @@
 import pandas as pd
 import numpy as np
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 import logging
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
-from sklearn.svm import SVR
-from sklearn.neural_network import MLPRegressor
-from sklearn.model_selection import train_test_split, GridSearchCV, TimeSeriesSplit
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler, RobustScaler
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.pipeline import Pipeline
-from sklearn.compose import TransformedTargetRegressor
+from sklearn.metrics import r2_score
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -88,19 +83,19 @@ class AdvancedStockPredictor:
             pd.DataFrame: Historical stock data or None if error
         """
         try:
-            logger.info(f"Fetching {period} data for {self.symbol}")
+            logger.info("Fetching %s data for %s", period, self.symbol)
             ticker = yf.Ticker(self.symbol)
             data = ticker.history(period=period)
             
             if data.empty:
-                logger.error(f"No data found for symbol {self.symbol}")
+                logger.error("No data found for symbol %s", self.symbol)
                 return None
                 
-            logger.info(f"Fetched {len(data)} trading days of data")
+            logger.info("Fetched %d trading days of data", len(data))
             return data
             
         except Exception as e:
-            logger.error(f"Error fetching data for {self.symbol}: {e}")
+            logger.error("Error fetching data for %s: %s", self.symbol, e)
             return None
     
     def calculate_advanced_sma(self, data: pd.DataFrame, periods: List[int]) -> pd.DataFrame:
@@ -259,7 +254,7 @@ class AdvancedStockPredictor:
             pd.DataFrame: Data with advanced technical indicator features
         """
         try:
-            logger.info(f"Creating advanced features for {self.symbol}")
+            logger.info("Creating advanced features for %s", self.symbol)
             
             # Create a copy to avoid modifying original data
             df = data.copy()
@@ -339,11 +334,11 @@ class AdvancedStockPredictor:
             # Remove rows with NaN values
             df = df.dropna()
             
-            logger.info(f"Created {len(df.columns)} features from {len(data)} rows")
+            logger.info("Created %d features from %d rows", len(df.columns), len(data))
             return df
             
         except Exception as e:
-            logger.error(f"Error creating features: {e}")
+            logger.error("Error creating features: %s", e)
             return None
     
     def train_models(self, data: pd.DataFrame) -> bool:
@@ -366,7 +361,7 @@ class AdvancedStockPredictor:
             X = data[feature_cols]
             y = data['Target']
             
-            logger.info(f"Training with {len(feature_cols)} features and {len(X)} samples")
+            logger.info("Training with %d features and %d samples", len(feature_cols), len(X))
             
             # Time series split for validation
             tscv = TimeSeriesSplit(n_splits=5)
@@ -376,7 +371,7 @@ class AdvancedStockPredictor:
             
             # Train each model
             for name, model in self.models.items():
-                logger.info(f"Training {name}")
+                logger.info("Training %s", name)
                 
                 # Time series cross-validation
                 cv_scores = []
@@ -403,7 +398,7 @@ class AdvancedStockPredictor:
                 # Store average CV score
                 avg_score = np.mean(cv_scores)
                 self.model_scores[name] = avg_score
-                logger.info(f"{name} CV Score: {avg_score:.4f}")
+                logger.info("%s CV Score: %.4f", name, avg_score)
                 
                 # Final training on all data
                 if name == 'neural_network':
@@ -416,17 +411,17 @@ class AdvancedStockPredictor:
                     model.fit(X_scaled, y)
             
             # Calculate feature importance for tree-based models
-            self._calculate_feature_importance(X)
+            self._calculate_feature_importance()
             
             self.is_trained = True
             logger.info("Model training completed successfully")
             return True
             
         except Exception as e:
-            logger.error(f"Error training models: {e}")
+            logger.error("Error training models: %s", e)
             return False
     
-    def _calculate_feature_importance(self, X: pd.DataFrame):
+    def _calculate_feature_importance(self):
         """Calculate feature importance from tree-based models."""
         try:
             tree_models = ['random_forest', 'gradient_boosting', 'extra_trees']
@@ -452,7 +447,7 @@ class AdvancedStockPredictor:
             )
             
         except Exception as e:
-            logger.error(f"Error calculating feature importance: {e}")
+            logger.error("Error calculating feature importance: %s", e)
     
     def predict_ensemble(self, data: pd.DataFrame) -> Dict[str, Any]:
         """
@@ -542,7 +537,7 @@ class AdvancedStockPredictor:
             }
             
         except Exception as e:
-            logger.error(f"Error making prediction: {e}")
+            logger.error("Error making prediction: %s", e)
             return None
     
     def get_model_info(self) -> Dict[str, Any]:
@@ -589,5 +584,5 @@ class AdvancedStockPredictor:
             return prediction
             
         except Exception as e:
-            logger.error(f"Error in train_and_predict: {e}")
+            logger.error("Error in train_and_predict: %s", e)
             return None

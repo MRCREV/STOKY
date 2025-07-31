@@ -11,20 +11,39 @@ class ApiService {
 
   static Future<StockModel?> getStockInfo(String symbol) async {
     try {
+      print('🌐 Fetching stock info for: $symbol');
+      print('🔗 API URL: $baseUrl/stock/info/$symbol');
+
       final response = await http.get(
         Uri.parse('$baseUrl/stock/info/$symbol'),
         headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 30)); // Increased timeout
+
+      print('📡 HTTP Status: ${response.statusCode}');
+      print('📄 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return StockModel.fromJson(data);
+        print('✅ JSON parsed successfully');
+        final stockModel = StockModel.fromJson(data);
+        print(
+            '✅ StockModel created: ${stockModel.symbol} - ${stockModel.name}');
+        return stockModel;
       } else {
-        print('Error fetching stock info: ${response.statusCode}');
+        print('❌ Error fetching stock info: ${response.statusCode}');
+        print('❌ Error body: ${response.body}');
         return null;
       }
     } catch (e) {
-      print('Error fetching stock info: $e');
+      print('❌ Exception fetching stock info: $e');
+      print('❌ Exception type: ${e.runtimeType}');
+      if (e.toString().contains('SocketException')) {
+        print('🌐 Network connection issue');
+      } else if (e.toString().contains('TimeoutException')) {
+        print('⏰ Request timed out');
+      } else if (e.toString().contains('FormatException')) {
+        print('📄 JSON parsing error');
+      }
       return null;
     }
   }

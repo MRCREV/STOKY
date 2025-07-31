@@ -97,9 +97,6 @@ class AdvancedStockPredictor:
         except (ValueError, KeyError, ConnectionError, TimeoutError) as e:
             logger.error("Error fetching data for %s: %s", self.symbol, e)
             return None
-        except Exception as e:
-            logger.error("Unexpected error fetching data for %s: %s", self.symbol, e)
-            return None
     
     def calculate_advanced_sma(self, data: pd.DataFrame, periods: List[int]) -> pd.DataFrame:
         """Calculate multiple Simple Moving Averages."""
@@ -343,9 +340,6 @@ class AdvancedStockPredictor:
         except (ValueError, KeyError, IndexError) as e:
             logger.error("Error creating features: %s", e)
             return None
-        except Exception as e:
-            logger.error("Unexpected error creating features: %s", e)
-            return None
     
     def train_models(self, data: pd.DataFrame) -> bool:
         """
@@ -426,9 +420,6 @@ class AdvancedStockPredictor:
         except (ValueError, MemoryError, RuntimeError) as e:
             logger.error("Error training models: %s", e)
             return False
-        except Exception as e:
-            logger.error("Unexpected error training models: %s", e)
-            return False
     
     def _calculate_feature_importance(self):
         """Calculate feature importance from tree-based models."""
@@ -457,8 +448,6 @@ class AdvancedStockPredictor:
             
         except (KeyError, AttributeError, ValueError) as e:
             logger.error("Error calculating feature importance: %s", e)
-        except Exception as e:
-            logger.error("Unexpected error calculating feature importance: %s", e)
     
     def predict_ensemble(self, data: pd.DataFrame) -> Dict[str, Any]:
         """
@@ -505,9 +494,6 @@ class AdvancedStockPredictor:
                 except (ValueError, KeyError, AttributeError) as e:
                     logger.warning("Error with %s prediction: %s", name, e)
                     continue
-                except Exception as e:
-                    logger.warning("Unexpected error with %s prediction: %s", name, e)
-                    continue
             
             if not predictions:
                 raise ValueError("No successful predictions from any model")
@@ -552,9 +538,6 @@ class AdvancedStockPredictor:
             
         except (ValueError, KeyError, RuntimeError) as e:
             logger.error("Error making prediction: %s", e)
-            return None
-        except Exception as e:
-            logger.error("Unexpected error making prediction: %s", e)
             return None
     
     def get_model_info(self) -> Dict[str, Any]:
@@ -602,7 +585,4 @@ class AdvancedStockPredictor:
             
         except (ValueError, RuntimeError, MemoryError) as e:
             logger.error("Error in train_and_predict: %s", e)
-            return None
-        except Exception as e:
-            logger.error("Unexpected error in train_and_predict: %s", e)
             return None

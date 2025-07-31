@@ -12,7 +12,7 @@ class ApiService {
   static Future<StockModel?> getStockInfo(String symbol) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/stock/$symbol'),
+        Uri.parse('$baseUrl/stock/info/$symbol'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
 
@@ -32,7 +32,7 @@ class ApiService {
   static Future<PredictionModel?> getPrediction(String symbol) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/predict/$symbol'),
+        Uri.parse('$baseUrl/stock/predict/$symbol'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 15));
 

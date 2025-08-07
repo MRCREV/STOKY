@@ -82,6 +82,37 @@ class ErrorResponse(BaseModel):
     message: str
     symbol: Optional[str] = None
 
+class StockScreeningRequest(BaseModel):
+    min_market_cap: Optional[float] = None
+    max_market_cap: Optional[float] = None
+    min_pe_ratio: Optional[float] = None
+    max_pe_ratio: Optional[float] = None
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    min_volume: Optional[int] = None
+    symbols: Optional[List[str]] = None  # If provided, screen these specific symbols
+
+class ComparisonResponse(BaseModel):
+    stocks: List[StockInfoResponse]
+    comparison_date: str
+    best_performer: Dict[str, Any]
+    worst_performer: Dict[str, Any]
+
+class TopPerformersResponse(BaseModel):
+    category: str
+    timeframe: str
+    performers: List[Dict[str, Any]]
+    total_analyzed: int
+    generation_date: str
+
+class RecommendationResponse(BaseModel):
+    symbol: str
+    score: float
+    recommendation: str  # BUY, HOLD, SELL
+    reasons: List[str]
+    technical_signals: Dict[str, str]
+    risk_level: str  # LOW, MEDIUM, HIGH
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -481,6 +512,375 @@ async def get_advanced_model_info(
             status_code=500,
             detail=f"Internal error while getting advanced model info for {symbol}"
         )
+
+# Stock Screening for Best Options
+@app.post("/stock/screen", response_model=List[StockInfoResponse])
+async def screen_stocks(screening_request: StockScreeningRequest):
+    """
+    Screen stocks based on specified criteria to find the best investment options.
+    
+    Args:
+        screening_request (StockScreeningRequest): Screening criteria
+        
+    Returns:
+        List[StockInfoResponse]: List of stocks that meet the criteria
+        
+    Raises:
+        HTTPException: If screening fails
+    """
+    try:
+        logger.info("Screening stocks with criteria")
+        
+        # Default symbols if none provided (popular stocks for demonstration)
+        symbols_to_check = screening_request.symbols or [
+            'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM', 'V', 'WMT',
+            'JNJ', 'PG', 'UNH', 'HD', 'MA', 'DIS', 'PYPL', 'NFLX', 'ADBE', 'CRM'
+        ]
+        
+        screened_stocks = []
+        
+        for symbol in symbols_to_check:
+            try:
+                # Get stock info
+                stock_info = await get_stock_info(symbol)
+                
+                # Apply screening criteria
+                if _meets_screening_criteria(stock_info, screening_request):
+                    screened_stocks.append(stock_info)
+                    
+            except Exception as e:
+                logger.warning(f"Failed to screen {symbol}: {str(e)}")
+                continue
+        
+        # Sort by market cap (largest first) if available
+        screened_stocks.sort(
+            key=lambda x: x.market_cap or 0, 
+            reverse=True
+        )
+        
+        logger.info(f"Screening completed. Found {len(screened_stocks)} stocks matching criteria")
+        return screened_stocks
+        
+    except Exception as e:
+        logger.error(f"Error screening stocks: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal error during stock screening"
+        )
+
+# Stock Comparison
+@app.post("/stock/compare", response_model=ComparisonResponse)
+async def compare_stocks(symbols: List[str]):
+    """
+    Compare multiple stocks side by side to identify the best options.
+    
+    Args:
+        symbols (List[str]): List of stock symbols to compare
+        
+    Returns:
+        ComparisonResponse: Detailed comparison of stocks
+        
+    Raises:
+        HTTPException: If comparison fails
+    """
+    try:
+        logger.info(f"Comparing stocks: {', '.join(symbols)}")
+        
+        if len(symbols) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 stocks are required for comparison"
+            )
+        
+        if len(symbols) > 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 10 stocks can be compared at once"
+            )
+        
+        stocks_info = []
+        for symbol in symbols:
+            try:
+                stock_info = await get_stock_info(symbol)
+                stocks_info.append(stock_info)
+            except Exception as e:
+                logger.warning(f"Failed to get info for {symbol}: {str(e)}")
+                continue
+        
+        if len(stocks_info) < 2:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not fetch data for enough stocks to perform comparison"
+            )
+        
+        # Find best and worst performers
+        best_performer = max(stocks_info, key=lambda x: x.change_percent)
+        worst_performer = min(stocks_info, key=lambda x: x.change_percent)
+        
+        comparison = ComparisonResponse(
+            stocks=stocks_info,
+            comparison_date=datetime.now().isoformat(),
+            best_performer={
+                "symbol": best_performer.symbol,
+                "name": best_performer.name,
+                "change_percent": best_performer.change_percent,
+                "current_price": best_performer.current_price
+            },
+            worst_performer={
+                "symbol": worst_performer.symbol,
+                "name": worst_performer.name,
+                "change_percent": worst_performer.change_percent,
+                "current_price": worst_performer.current_price
+            }
+        )
+        
+        logger.info(f"Comparison completed for {len(stocks_info)} stocks")
+        return comparison
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error comparing stocks: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal error during stock comparison"
+        )
+
+# Top Performers
+@app.get("/stock/top-performers", response_model=TopPerformersResponse)
+async def get_top_performers(
+    category: str = Query(default="change", description="Category: change, volume, market_cap"),
+    limit: int = Query(default=10, ge=1, le=50, description="Number of top performers to return")
+):
+    """
+    Get top performing stocks in various categories.
+    
+    Args:
+        category (str): Performance category (change, volume, market_cap)
+        limit (int): Number of top performers to return
+        
+    Returns:
+        TopPerformersResponse: Top performing stocks
+        
+    Raises:
+        HTTPException: If fetching top performers fails
+    """
+    try:
+        logger.info(f"Getting top {limit} performers in category: {category}")
+        
+        # Default symbols for analysis (popular stocks)
+        symbols_to_analyze = [
+            'AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM', 'V', 'WMT',
+            'JNJ', 'PG', 'UNH', 'HD', 'MA', 'DIS', 'PYPL', 'NFLX', 'ADBE', 'CRM',
+            'BAC', 'XOM', 'PFE', 'KO', 'PEP', 'ABBV', 'CVX', 'LLY', 'COST', 'AVGO'
+        ]
+        
+        stocks_data = []
+        for symbol in symbols_to_analyze:
+            try:
+                stock_info = await get_stock_info(symbol)
+                stocks_data.append({
+                    "symbol": stock_info.symbol,
+                    "name": stock_info.name,
+                    "current_price": stock_info.current_price,
+                    "change_percent": stock_info.change_percent,
+                    "volume": stock_info.volume,
+                    "market_cap": stock_info.market_cap,
+                    "currency": stock_info.currency
+                })
+            except Exception as e:
+                logger.warning(f"Failed to get data for {symbol}: {str(e)}")
+                continue
+        
+        # Sort based on category
+        if category == "change":
+            stocks_data.sort(key=lambda x: x["change_percent"], reverse=True)
+        elif category == "volume":
+            stocks_data.sort(key=lambda x: x["volume"], reverse=True)
+        elif category == "market_cap":
+            stocks_data.sort(key=lambda x: x["market_cap"] or 0, reverse=True)
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid category. Must be one of: change, volume, market_cap"
+            )
+        
+        top_performers = stocks_data[:limit]
+        
+        response = TopPerformersResponse(
+            category=category,
+            timeframe="1 day",
+            performers=top_performers,
+            total_analyzed=len(stocks_data),
+            generation_date=datetime.now().isoformat()
+        )
+        
+        logger.info(f"Successfully retrieved top {len(top_performers)} performers in {category}")
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting top performers: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal error while fetching top performers"
+        )
+
+# Investment Recommendations
+@app.get("/stock/recommend/{symbol}", response_model=RecommendationResponse)
+async def get_investment_recommendation(symbol: str):
+    """
+    Get AI-powered investment recommendation for a specific stock.
+    
+    Args:
+        symbol (str): Stock symbol
+        
+    Returns:
+        RecommendationResponse: Investment recommendation with reasoning
+        
+    Raises:
+        HTTPException: If recommendation generation fails
+    """
+    try:
+        logger.info(f"Generating investment recommendation for {symbol}")
+        
+        symbol = symbol.upper().strip()
+        
+        # Get stock info and prediction
+        stock_info = await get_stock_info(symbol)
+        
+        try:
+            prediction = await predict_stock_price_advanced(symbol)
+        except:
+            # Fallback to basic prediction if advanced fails
+            prediction = await predict_stock_price(symbol)
+        
+        # Generate recommendation based on various factors
+        recommendation_data = _generate_recommendation(stock_info, prediction)
+        
+        logger.info(f"Generated recommendation for {symbol}: {recommendation_data['recommendation']}")
+        return RecommendationResponse(**recommendation_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating recommendation for {symbol}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error while generating recommendation for {symbol}"
+        )
+
+# Helper functions
+def _meets_screening_criteria(stock_info: StockInfoResponse, criteria: StockScreeningRequest) -> bool:
+    """Check if a stock meets the screening criteria."""
+    
+    # Market cap filtering
+    if criteria.min_market_cap is not None and (stock_info.market_cap is None or stock_info.market_cap < criteria.min_market_cap):
+        return False
+    if criteria.max_market_cap is not None and (stock_info.market_cap is None or stock_info.market_cap > criteria.max_market_cap):
+        return False
+    
+    # P/E ratio filtering
+    if criteria.min_pe_ratio is not None and (stock_info.pe_ratio is None or stock_info.pe_ratio < criteria.min_pe_ratio):
+        return False
+    if criteria.max_pe_ratio is not None and (stock_info.pe_ratio is None or stock_info.pe_ratio > criteria.max_pe_ratio):
+        return False
+    
+    # Price filtering
+    if criteria.min_price is not None and stock_info.current_price < criteria.min_price:
+        return False
+    if criteria.max_price is not None and stock_info.current_price > criteria.max_price:
+        return False
+    
+    # Volume filtering
+    if criteria.min_volume is not None and stock_info.volume < criteria.min_volume:
+        return False
+    
+    return True
+
+def _generate_recommendation(stock_info: StockInfoResponse, prediction) -> Dict[str, Any]:
+    """Generate investment recommendation based on stock data and prediction."""
+    
+    reasons = []
+    technical_signals = {}
+    score = 50.0  # Neutral starting point
+    
+    # Analyze price change
+    if stock_info.change_percent > 5:
+        reasons.append("Strong positive momentum (+5%+ today)")
+        score += 15
+        technical_signals["momentum"] = "BULLISH"
+    elif stock_info.change_percent > 0:
+        reasons.append("Positive momentum today")
+        score += 5
+        technical_signals["momentum"] = "POSITIVE"
+    elif stock_info.change_percent < -5:
+        reasons.append("Significant decline (-5%+ today)")
+        score -= 15
+        technical_signals["momentum"] = "BEARISH"
+    else:
+        technical_signals["momentum"] = "NEUTRAL"
+    
+    # Analyze prediction
+    if hasattr(prediction, 'price_change_pct'):
+        pred_change = prediction.price_change_pct
+        if pred_change > 3:
+            reasons.append(f"AI predicts +{pred_change:.1f}% price increase")
+            score += 20
+            technical_signals["ai_prediction"] = "BULLISH"
+        elif pred_change > 0:
+            reasons.append(f"AI predicts +{pred_change:.1f}% price increase")
+            score += 10
+            technical_signals["ai_prediction"] = "POSITIVE"
+        elif pred_change < -3:
+            reasons.append(f"AI predicts {pred_change:.1f}% price decline")
+            score -= 20
+            technical_signals["ai_prediction"] = "BEARISH"
+        else:
+            technical_signals["ai_prediction"] = "NEUTRAL"
+    
+    # Analyze volume
+    if stock_info.volume > 10000000:  # High volume threshold
+        reasons.append("High trading volume indicates strong interest")
+        score += 5
+        technical_signals["volume"] = "HIGH"
+    else:
+        technical_signals["volume"] = "NORMAL"
+    
+    # Analyze market cap for stability
+    if stock_info.market_cap and stock_info.market_cap > 100000000000:  # $100B+
+        reasons.append("Large-cap stock provides stability")
+        score += 5
+        technical_signals["market_cap"] = "LARGE_CAP"
+    elif stock_info.market_cap and stock_info.market_cap > 10000000000:  # $10B+
+        technical_signals["market_cap"] = "MID_CAP"
+    else:
+        technical_signals["market_cap"] = "SMALL_CAP"
+    
+    # Determine recommendation
+    if score >= 70:
+        recommendation = "BUY"
+        risk_level = "MEDIUM"
+    elif score >= 55:
+        recommendation = "HOLD"
+        risk_level = "MEDIUM"
+    else:
+        recommendation = "SELL"
+        risk_level = "HIGH"
+    
+    # Adjust risk level based on volatility and other factors
+    if stock_info.change_percent > 10 or stock_info.change_percent < -10:
+        risk_level = "HIGH"
+    
+    return {
+        "symbol": stock_info.symbol,
+        "score": round(score, 1),
+        "recommendation": recommendation,
+        "reasons": reasons[:5],  # Limit to top 5 reasons
+        "technical_signals": technical_signals,
+        "risk_level": risk_level
+    }
 
 # Global exception handler
 @app.exception_handler(Exception)

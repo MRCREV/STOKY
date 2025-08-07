@@ -114,6 +114,12 @@ STOKY/
 - `GET /stock/predict/{symbol}` - Basic price prediction
 - `GET /stock/predict-advanced/{symbol}` - Advanced ensemble prediction
 
+### Best Options & Analysis 🌟
+- `POST /stock/screen` - Screen stocks based on criteria to find best options
+- `POST /stock/compare` - Compare multiple stocks side by side
+- `GET /stock/top-performers` - Get top performing stocks by category
+- `GET /stock/recommend/{symbol}` - Get AI-powered investment recommendations
+
 ### Model Information
 - `GET /stock/model-info/{symbol}` - Basic model details
 - `GET /stock/advanced-model-info/{symbol}` - Advanced model analysis
